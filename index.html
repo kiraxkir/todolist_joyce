@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mes tâches</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>Mes tâches</h1>
+  <p class="date" id="today"></p>
+  <div id="content"></div>
+</div>
+<a class="fab" href="add.html">＋ Ajouter une tâche</a>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+<script>
+function row(t) {
+  return `<li class="${t.done ? "done" : ""}" data-id="${t.id}">
+    <label class="check"><input type="checkbox" ${t.done ? "checked" : ""} aria-label="Terminer"></label>
+    <a class="item" href="add.html?id=${t.id}">
+      <span class="t">${esc(t.title)}</span>
+      ${t.date ? `<span class="w ${isLate(t) ? "late" : ""}">${whenLabel(t)}</span>` : ""}
+    </a></li>`;
+}
+function section(title, list, cls) {
+  return list.length ? `<h2 class="${cls || ""}">${title}</h2><ul>${list.map(row).join("")}</ul>` : "";
+}
+function render() {
+  $("today").textContent = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const tasks = loadTasks(), td = todayStr();
+  const key = t => (t.date || "9999") + (t.time || "99:99");
+  const todo = tasks.filter(t => !t.done).sort((a, b) => key(a).localeCompare(key(b)));
+  const late = todo.filter(isLate);
+  const today = todo.filter(t => !isLate(t) && (!t.date || t.date <= td));
+  const later = todo.filter(t => !isLate(t) && t.date && t.date > td);
+  const done = tasks.filter(t => t.done);
+  let html = section("En retard", late, "late") + section("Aujourd’hui", today) + section("À venir", later);
+  if (!todo.length) html = `<div class="empty">Rien à faire pour le moment 🎉<br>Appuyez sur « Ajouter une tâche ».</div>`;
+  if (done.length) html += section("Terminées", done) + `<button class="link" id="clear">Effacer les tâches terminées</button>`;
+  $("content").innerHTML = html;
+}
+$("content").addEventListener("change", e => {
+  const li = e.target.closest("li"); if (!li) return;
+  const tasks = loadTasks(), t = tasks.find(x => x.id === li.dataset.id);
+  if (t) { t.done = e.target.checked; saveTasks(tasks); render(); }
+});
+$("content").addEventListener("click", e => {
+  if (e.target.id === "clear") { saveTasks(loadTasks().filter(t => !t.done)); render(); }
+});
+render(); checkReminders();
+setInterval(checkReminders, 30000);
+setInterval(render, 60000);
+</script>
+</body>
+</html>

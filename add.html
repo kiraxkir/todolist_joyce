@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ajouter une tâche</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← Retour</a>
+  <h1 id="heading">Nouvelle tâche</h1>
+  <form id="form" autocomplete="off" style="margin-top:20px">
+    <input class="big" id="title" type="text" placeholder="Que faut-il faire ?" required maxlength="140" aria-label="Tâche" autofocus>
+
+    <div class="chips" id="when" role="group" aria-label="Quand ?">
+      <button type="button" class="chip" data-w="today" aria-pressed="false">Aujourd’hui</button>
+      <button type="button" class="chip" data-w="tomorrow" aria-pressed="false">Demain</button>
+      <button type="button" class="chip" data-w="pick" aria-pressed="false">Autre date</button>
+      <button type="button" class="chip" data-w="none" aria-pressed="true">Sans date</button>
+    </div>
+    <div class="field" id="dateField" hidden><input type="date" id="date" aria-label="Date"></div>
+
+    <div class="field" id="timeField" hidden>
+      <input type="time" id="time" aria-label="Heure">
+      <label class="rem"><input type="checkbox" id="remind" checked> Me rappeler à cette heure</label>
+    </div>
+
+    <button class="save" type="submit" id="save">Ajouter</button>
+    <button class="link del" type="button" id="del" hidden>Supprimer cette tâche</button>
+  </form>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+<script>
+let when = "none";
+const id = new URLSearchParams(location.search).get("id");
+
+function setWhen(w) {
+  when = w;
+  document.querySelectorAll("#when .chip").forEach(b => b.setAttribute("aria-pressed", b.dataset.w === w));
+  $("dateField").hidden = w !== "pick";
+  $("timeField").hidden = w === "none";
+  if (w === "pick" && !$("date").value) $("date").value = todayStr();
+}
+$("when").addEventListener("click", e => { if (e.target.dataset.w) setWhen(e.target.dataset.w); });
+
+if (id) {
+  const t = loadTasks().find(x => x.id === id);
+  if (t) {
+    $("heading").textContent = "Modifier la tâche"; $("save").textContent = "Enregistrer"; $("del").hidden = false;
+    $("title").value = t.title; $("time").value = t.time || ""; $("remind").checked = !!t.remind;
+    if (!t.date) setWhen("none");
+    else if (t.date === todayStr()) setWhen("today");
+    else if (t.date === addDays(1)) setWhen("tomorrow");
+    else { setWhen("pick"); $("date").value = t.date; }
+  }
+}
+
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const title = $("title").value.trim(); if (!title) return;
+  const date = when === "today" ? todayStr() : when === "tomorrow" ? addDays(1) : when === "pick" ? $("date").value : "";
+  const time = date ? $("time").value : "";
+  const remind = !!(date && time && $("remind").checked);
+  const tasks = loadTasks();
+  const t = id && tasks.find(x => x.id === id);
+  if (t) Object.assign(t, { title, date, time, remind, notified: false });
+  else tasks.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title, date, time, remind, done: false, notified: false, created: Date.now() });
+  saveTasks(tasks);
+  const go = () => location.href = "index.html";
+  if (remind && "Notification" in window && Notification.permission === "default") Notification.requestPermission().then(go, go);
+  else go();
+});
+$("del").addEventListener("click", () => {
+  if (confirm("Supprimer cette tâche ?")) { saveTasks(loadTasks().filter(x => x.id !== id)); location.href = "index.html"; }
+});
+</script>
+</body>
+</html>
